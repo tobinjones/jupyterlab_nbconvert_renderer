@@ -27,6 +27,8 @@
   },
   "dependencies": {
     "@jupyterlab/application": "^0.16.3",
+    "@jupyterlab/outputarea": "^0.16.3",
+    "@jupyterlab/rendermime": "^0.16.3",
     "@jupyterlab/rendermime-interfaces": "^1.0.0",
     "@phosphor/application": "^1.5.0",
     "@phosphor/virtualdom": "^1.1.2",
