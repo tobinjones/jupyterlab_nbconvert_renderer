@@ -1,19 +1,26 @@
 import {
-  IRenderMime
-} from '@jupyterlab/rendermime-interfaces';
+  JupyterLab, JupyterLabPlugin
+} from '@jupyterlab/application';
 
 import {
-  RenderMimeRegistry
-} from '@jupyterlab/rendermime';
-
+  IRenderMimeRegistry, MimeModel
+} from '@jupyterlab/rendermime'
 
 import {
-  Widget
-} from '@phosphor/widgets';
+  IDocumentManager
+} from '@jupyterlab/docmanager';
+
+import {
+  INotebookTracker
+} from '@jupyterlab/notebook'
 
 import {
   VirtualDOM, h,
 } from '@phosphor/virtualdom';
+
+import {
+  Widget
+} from '@phosphor/widgets';
 
 import {
   ServerConnection
@@ -22,114 +29,89 @@ import {
 import {
   URLExt
 } from '@jupyterlab/coreutils';
-import { ReadonlyJSONValue } from '@phosphor/coreutils';
-/*
-import {
-  OutputArea
-} from '@jupyterlab/outputarea'
-*/
-
-/**
- * The default mime type for the extension.
- */
-const MIME_TYPE = 'application/x-ipynb+json';
 
 
-/**
- * The class name added to the extension.
- */
-const CLASS_NAME = 'jp-OutputWidgetnotebook';
-
-
-/**
- * A widget for rendering notebook.
- */
-export
-class OutputWidget extends Widget implements IRenderMime.IRenderer {
+class NbViewWidget extends Widget {
 
   private serverSettings: ServerConnection.ISettings
 
-  /**
-   * Construct a new output widget.
-   */
-  constructor(options: IRenderMime.IRendererOptions) {
+  constructor(path:string, rendermime: IRenderMimeRegistry) {
     super();
-    this._mimeType = options.mimeType;
     this.serverSettings = ServerConnection.makeSettings();
-    this.addClass(CLASS_NAME);
-    this._format_option = VirtualDOM.realize(h.select([
-      h.option({value:"html"},"HTML"),
-      h.option({value:"asciidoc"},"AsciiDoc"),
-      h.option({value:"slides"},"Slides"),
-      h.option({value:"pdfdesignnote"},"Design Note")
-      ])) as HTMLSelectElement
-    let toolbar = VirtualDOM.realize(h.div())
-    toolbar.appendChild(this._format_option)
-    this._content = VirtualDOM.realize(h.div())
-    this.node.appendChild(toolbar)
-    this.node.appendChild(this._content)
-  }
-
-  nbconvertRequest(format: string, notebook:ReadonlyJSONValue): Promise<Response> {
-    let fullUrl = URLExt.join(this.serverSettings.baseUrl, 'nbconvert_json', format);
-    console.log(notebook)
-    return ServerConnection.makeRequest(fullUrl, {method:'POST', body:JSON.stringify(notebook)}, this.serverSettings)
-  }
-
-  /**
-   * Render notebook into this widget's node.
-   */
-  renderModel(model: IRenderMime.IMimeModel): Promise<void> {
-    let notebook_json = model.data[this._mimeType]
-    let format:string = this._format_option.value;
-    this.nbconvertRequest(format, notebook_json).then((response)=>{
-      let mimetype = response.headers.get('Content-Type').split(';')[0]
-      response.text().then( (value) => {
-        let rendermime = new RenderMimeRegistry()
-        let renderer = rendermime.createRenderer(mimetype)
-        let new_model:IRenderMime.IMimeModel = {
-          trusted:true,
-          data:{mimetype:value},
-          metadata:model.metadata,
-          setData:(value)=>{}
+    this.id = 'asdf';
+    this.title.label = 'asdfadsfdasf';
+    this.title.closable = true;
+    this.addClass('jp-asdf');
+    let title = VirtualDOM.realize(h.h1(path))
+    let content = VirtualDOM.realize(h.div())
+    this.node.appendChild(title)
+    this.node.appendChild(content)
+    this.nbconvertRequest('pdfdesignnote', path).then((response)=>{
+      let mimetype:string = response.headers.get('Content-Type').split(';')[0]
+      let renderer = rendermime.createRenderer(mimetype)
+      response.blob().then((blob)=> {
+        console.log(mimetype)
+        const reader = new FileReader()
+        reader.readAsDataURL(blob)
+        reader.onloadend = function () {
+          let thedata:{[mimetype:string]:string} = {}
+          thedata[mimetype] = reader.result.split(',')[1]
+          console.log(thedata)
+          let newmodel = new MimeModel({trusted:true,data:thedata})
+          console.log(newmodel)
+          renderer.renderModel(newmodel)
         }
-        this._content.innerHTML = '';
-        this._content.appendChild(renderer.node)
-        renderer.renderModel(new_model)
-      
+
+
       })
+      content.appendChild(renderer.node)
+      console.log(renderer)
     })
-    return Promise.resolve(void 0);
   }
 
-  private _content: HTMLElement;
-  private _format_option: HTMLSelectElement;
-  private _mimeType: string;
+  nbconvertRequest(format: string, path:string): Promise<Response> {
+    let fullUrl = URLExt.join(this.serverSettings.baseUrl, 'nbconvert', format, path);
+    return ServerConnection.makeRequest(fullUrl, {}, this.serverSettings)
+  }
+
+};
+
+function activateNbViewPlugin(app: JupyterLab, tracker: INotebookTracker, rendermime: IRenderMimeRegistry, docmanager: IDocumentManager): void {
+
+  app.commands.addCommand('NbView:Open', {
+    execute: () => {
+      let nbWidget = tracker.currentWidget
+      console.log(nbWidget)
+      let nbContext = docmanager.contextForWidget(nbWidget);
+      let viewWidget = new NbViewWidget(nbContext.path, rendermime)
+      app.shell.addToMainArea(viewWidget);
+      nbWidget.update();
+      app.shell.activateById(viewWidget.id);
+      console.log(nbWidget)
+      console.log(nbContext)
+      console.log(viewWidget)
+
+     },
+    isEnabled: () => true,
+    isVisible: () => true,
+    label: 'Show NBView'
+  });
+
+  app.contextMenu.addItem({
+    command: 'NbView:Open',
+    selector: '.jp-Notebook'
+  });
 }
 
-
-/**
- * A mime renderer factory for notebook data.
- */
-export
-const rendererFactory: IRenderMime.IRendererFactory = {
-  safe: true,
-  mimeTypes: [MIME_TYPE],
-  defaultRank: 99,
-  createRenderer: options => new OutputWidget(options)
+const nbViewPlugin: JupyterLabPlugin<void> = {
+  id: 'nbViewPlugin',
+  requires: [
+    INotebookTracker,
+    IRenderMimeRegistry,
+    IDocumentManager,
+  ],
+  activate: activateNbViewPlugin,
+  autoStart: true
 };
 
-const extension: IRenderMime.IExtension = {
-  id: 'jupyterlab_nbconvert_renderer:plugin',
-  rendererFactory,
-  rank: 99,
-  dataType: 'json',
-  documentWidgetFactoryOptions: [{
-    name: 'NBConvertView',
-    primaryFileType: 'notebook',
-    fileTypes: ['notebook']
-  }]
-};
-
-export default extension;
-
+export default nbViewPlugin;
