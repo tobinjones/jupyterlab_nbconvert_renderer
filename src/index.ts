@@ -11,8 +11,12 @@ import {
 } from '@jupyterlab/docmanager';
 
 import {
-  INotebookTracker
+  INotebookTracker, NotebookPanel, INotebookModel
 } from '@jupyterlab/notebook'
+
+import {
+  ToolbarButton
+} from '@jupyterlab/apputils';
 
 import {
   VirtualDOM, h,
@@ -23,49 +27,95 @@ import {
 } from '@phosphor/widgets';
 
 import {
+  IDisposable, DisposableDelegate
+} from '@phosphor/disposable';
+
+import {
   ServerConnection
 } from '@jupyterlab/services';
 
 import {
-  URLExt
+  URLExt, PathExt
 } from '@jupyterlab/coreutils';
 
+import '../style/index.css';
+import { DocumentRegistry } from '@jupyterlab/docregistry';
 
 class NbViewWidget extends Widget {
 
   private serverSettings: ServerConnection.ISettings
+  private outputSelect: HTMLSelectElement
+  private contentDiv: HTMLDivElement
+  private renderMimeRegistry: IRenderMimeRegistry
+  private docContext:DocumentRegistry.IContext<DocumentRegistry.IModel>
+  private spinnerDiv:HTMLDivElement
 
-  constructor(path:string, rendermime: IRenderMimeRegistry) {
+  constructor(docContext:DocumentRegistry.IContext<DocumentRegistry.IModel>, renderMimeRegistry: IRenderMimeRegistry) {
     super();
+    // Interfaces
+    this.docContext = docContext;
+    this.renderMimeRegistry = renderMimeRegistry
     this.serverSettings = ServerConnection.makeSettings();
-    this.id = 'asdf';
-    this.title.label = 'asdfadsfdasf';
+    // Widget IDs
+    this.id = 'nbViewWidget';
+    this.title.label = PathExt.basename(this.nbPath(), '.ipynb')
     this.title.closable = true;
-    this.addClass('jp-asdf');
-    let title = VirtualDOM.realize(h.h1(path))
-    let content = VirtualDOM.realize(h.div())
-    this.node.appendChild(title)
-    this.node.appendChild(content)
-    this.nbconvertRequest('pdfdesignnote', path).then((response)=>{
+    // Output widget
+    this.addClass('jp-nbviewwidget');
+    this.outputSelect = VirtualDOM.realize(h.select([
+      h.option({value:"html"}, "HTML"),
+      h.option({value:"pdfdesignnote"}, "Design Note"),
+    ])) as HTMLSelectElement
+    this.contentDiv = VirtualDOM.realize(h.div()) as HTMLDivElement
+    let toolbarDiv = VirtualDOM.realize(h.div()) as HTMLDivElement
+    this.contentDiv.classList.add('jp-nbviewContent')
+    toolbarDiv.classList.add('jp-Toolbar')
+    this.spinnerDiv = VirtualDOM.realize(h.div()) as HTMLDivElement
+    toolbarDiv.appendChild(this.outputSelect)
+    toolbarDiv.appendChild(this.spinnerDiv)
+    this.node.appendChild(toolbarDiv)
+    this.node.appendChild(this.contentDiv)
+    // Events
+    this.outputSelect.onchange = (ev: Event) => {this.updateContent()}
+    this.docContext.fileChanged.connect((sender,args)=>{this.updateContent()})
+    this.docContext.pathChanged.connect((sender,args)=>{this.updateContent()})
+    this.updateContent()
+  }
+
+  nbPath(): string {
+    return this.docContext.path
+  }
+
+  chosenOutputType(): string {
+    return this.outputSelect.value
+  }
+
+  updateContent(): void {
+    this.spinnerDiv.classList.add('jp-nbviewSpinner')
+    this.nbconvertRequest(this.chosenOutputType(), this.nbPath()).then((response)=>{
       let mimetype:string = response.headers.get('Content-Type').split(';')[0]
-      let renderer = rendermime.createRenderer(mimetype)
+      let renderer = this.renderMimeRegistry.createRenderer(mimetype)
       response.blob().then((blob)=> {
-        console.log(mimetype)
         const reader = new FileReader()
-        reader.readAsDataURL(blob)
+        if(mimetype.match("text/.*")){
+          reader.readAsText(blob)
+        } else {
+          reader.readAsDataURL(blob)
+        }
         reader.onloadend = function () {
           let thedata:{[mimetype:string]:string} = {}
-          thedata[mimetype] = reader.result.split(',')[1]
-          console.log(thedata)
+          if(mimetype.match("text/.*")){
+            thedata[mimetype] = reader.result
+          } else {
+            thedata[mimetype] = reader.result.split(',')[1]
+          }
           let newmodel = new MimeModel({trusted:true,data:thedata})
-          console.log(newmodel)
           renderer.renderModel(newmodel)
         }
-
-
       })
-      content.appendChild(renderer.node)
-      console.log(renderer)
+      this.contentDiv.innerHTML=""
+      this.contentDiv.appendChild(renderer.node)
+      this.spinnerDiv.classList.remove('jp-nbviewSpinner')
     })
   }
 
@@ -76,26 +126,56 @@ class NbViewWidget extends Widget {
 
 };
 
+
+/**
+ * A notebook widget extension that adds a button to the toolbar.
+ */
+export
+class ButtonExtension implements DocumentRegistry.IWidgetExtension<NotebookPanel, INotebookModel> {
+
+  private action: ()=>void
+
+  constructor(action: ()=>void){
+    this.action=action
+  }
+
+  createNew(panel: NotebookPanel, context: DocumentRegistry.IContext<INotebookModel>): IDisposable {
+    let button = new ToolbarButton({
+      className: 'jp-NbViewIcon',
+      onClick: this.action,
+      tooltip: 'Show NBView'
+    });
+
+    let i = document.createElement('i');
+    i.classList.add('fa', 'fa-book-open');
+    button.node.appendChild(i);
+
+    panel.toolbar.insertItem(8, 'showNbView', button);
+    return new DisposableDelegate(() => {
+      button.dispose();
+    });
+  }
+}
+
+
 function activateNbViewPlugin(app: JupyterLab, tracker: INotebookTracker, rendermime: IRenderMimeRegistry, docmanager: IDocumentManager): void {
 
   app.commands.addCommand('NbView:Open', {
     execute: () => {
       let nbWidget = tracker.currentWidget
-      console.log(nbWidget)
       let nbContext = docmanager.contextForWidget(nbWidget);
-      let viewWidget = new NbViewWidget(nbContext.path, rendermime)
+      let viewWidget = new NbViewWidget(nbContext, rendermime)
       app.shell.addToMainArea(viewWidget);
       nbWidget.update();
       app.shell.activateById(viewWidget.id);
-      console.log(nbWidget)
-      console.log(nbContext)
-      console.log(viewWidget)
 
      },
     isEnabled: () => true,
     isVisible: () => true,
     label: 'Show NBView'
   });
+
+  app.docRegistry.addWidgetExtension('Notebook', new ButtonExtension(()=>{app.commands.execute('NbView:Open')}));
 
   app.contextMenu.addItem({
     command: 'NbView:Open',

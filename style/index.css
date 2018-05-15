@@ -1,0 +1,68 @@
+@-moz-keyframes three-quarters-loader {
+    0% {
+      -moz-transform: rotate(0deg);
+      transform: rotate(0deg);
+    }
+    100% {
+      -moz-transform: rotate(360deg);
+      transform: rotate(360deg);
+    }
+  }
+  @-webkit-keyframes three-quarters-loader {
+    0% {
+      -webkit-transform: rotate(0deg);
+      transform: rotate(0deg);
+    }
+    100% {
+      -webkit-transform: rotate(360deg);
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes three-quarters-loader {
+    0% {
+      -moz-transform: rotate(0deg);
+      -ms-transform: rotate(0deg);
+      -webkit-transform: rotate(0deg);
+      transform: rotate(0deg);
+    }
+    100% {
+      -moz-transform: rotate(360deg);
+      -ms-transform: rotate(360deg);
+      -webkit-transform: rotate(360deg);
+      transform: rotate(360deg);
+    }
+  }
+
+  .jp-nbviewSpinner {
+    -moz-animation: three-quarters-loader 1250ms infinite linear;
+    -webkit-animation: three-quarters-loader 1250ms infinite linear;
+    animation: three-quarters-loader 1250ms infinite linear;
+    border: 4px solid #AAA;
+    border-right-color: transparent;
+    border-radius: 16px;
+    box-sizing: border-box;
+    display: inline-block;
+    position: relative;
+    overflow: hidden;
+    text-indent: -9999px;
+    width: 20px;
+    height: 20px;
+    margin: auto 4px auto auto;
+  }
+.jp-nbviewwidget .jp-Toolbar {
+    padding-left: 8px
+}
+.jp-nbviewwidget .jp-Toolbar select {
+    border:none
+} 
+  
+div.jp-nbviewContent {
+    height: 100%;
+}
+div.jp-nbviewContent>div {
+    height: 100%
+}
+.jp-NbViewIcon {
+    background-image: 
+    url("data:image/svg+xml;utf8,%3C%3Fxml%20version%3D%221.0%22%20encoding%3D%22UTF-8%22%3F%3E%3Csvg%20version%3D%221.1%22%20viewBox%3D%220%200%2013%2013%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20xmlns%3Acc%3D%22http%3A%2F%2Fcreativecommons.org%2Fns%23%22%20xmlns%3Adc%3D%22http%3A%2F%2Fpurl.org%2Fdc%2Felements%2F1.1%2F%22%20xmlns%3Ardf%3D%22http%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23%22%3E%3Cpath%20d%3D%22m8.8656%200.44068h-6.4467c-0.47276%200-0.85956%200.3868-0.85956%200.85956v10.315c0%200.47276%200.3868%200.85956%200.85956%200.85956h8.5956c0.47276%200%200.85956-0.3868%200.85956-0.85956v-8.1659zm2.1489%2011.174h-8.5956v-10.315h6.0169l2.5787%202.5787zm-4.2978-8.1659%203.4383%202.5787-3.4383%202.5787v-1.7191c-0.84237-0.017191-1.5816%200.1891-2.1919%200.60169-0.61029%200.41259-1.0229%201.0745-1.2464%201.977%200.017191-1.4097%200.33523-2.4755%200.97131-3.2062%200.62748-0.72203%201.4527-1.0916%202.4755-1.0916v-1.7191z%22%20fill%3D%22%23666%22%20stroke-width%3D%22.85956%22%2F%3E%0D%0A%3C%2Fsvg%3E") !important;
+}
